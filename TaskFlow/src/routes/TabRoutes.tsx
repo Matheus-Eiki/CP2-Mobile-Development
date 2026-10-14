@@ -3,21 +3,34 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import TaskStackRoutes from './TaskStackRoutes';
-import SettingsScreen from '../screens/Settings/SettingsScreen'
+import SettingsScreen from '../screens/settings/SettingsScreen';
+import HomeScreen from '../screens/home/HomeScreen';
 import { TabParamList } from '../types/navigation';
+import { useTheme } from '../hooks/useTheme';
 
 const Tab = createBottomTabNavigator<TabParamList>();
 
 export default function TabRoutes() {
+  const { colors } = useTheme();
+
   return (
-    <Tab.Navigator>
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.mutedText,
+        tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.border },
+        tabBarLabelStyle: { fontWeight: '600' },
+      }}
+    >
+      <Tab.Screen name="Home" component={HomeScreen} options={{ title: 'Home' }} />
       <Tab.Screen
-        name="Tarefas"
+        name="Tasks"
         component={TaskStackRoutes}
-        options={{ headerShown: false }}
+        options={{ title: 'Tarefas' }}
       />
       <Tab.Screen
-        name="Configurações"
+        name="Settings"
         component={SettingsScreen}
         options={{ title: 'Configurações' }}
       />

@@ -1,18 +1,13 @@
-import React from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  FlatList,
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
-import { useTasks } from '../../context/TaskContext';
-import { useAuth } from '../../hooks/useAuth';
+import EmptyState from '../../components/EmptyState';
+import FilterBar, { TaskFilter } from '../../components/FilterBar';
+import Header from '../../components/Header';
+import TaskCard from '../../components/TaskCard';
+import { useTasks } from '../../hooks/useTasks';
+import { useTheme } from '../../hooks/useTheme';
 import { Task } from '../../types/task';
 import { TaskStackParamList } from '../../types/navigation';
 
@@ -20,125 +15,70 @@ type Props = NativeStackScreenProps<TaskStackParamList, 'TaskList'>;
 
 export default function TaskListScreen({ navigation }: Props) {
   const { tasks, loading, removeTask } = useTasks();
-  const { logout } = useAuth();
+  const { colors } = useTheme();
+  const [selectedFilter, setSelectedFilter] = useState<TaskFilter>('Todas');
+  const filteredTasks = useMemo(
+    () => selectedFilter === 'Todas' ? tasks : tasks.filter(task => task.status === selectedFilter),
+    [tasks, selectedFilter]
+  );
 
-  async function confirmDelete(task: Task) {
+  async function deleteTask(task: Task) {
+    try {
+      await removeTask(task.id);
+    } catch {
+      Alert.alert('Erro', 'Não foi possível excluir a tarefa.');
+    }
+  }
+
+  function confirmDelete(task: Task) {
     if (Platform.OS === 'web') {
-      const confirmed = globalThis.confirm(
-        `Deseja excluir "${task.title}"?`
-      );
-
-      if (!confirmed) return;
-
-      try {
-        await removeTask(task.id);
-      } catch {
-        globalThis.alert('Não foi possível excluir a tarefa.');
-      }
-
+      if (globalThis.confirm(`Deseja excluir "${task.title}"?`)) void deleteTask(task);
       return;
     }
 
-    Alert.alert(
-      'Excluir tarefa',
-      `Deseja excluir "${task.title}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: () => {
-            void removeTask(task.id).catch(() => {
-              Alert.alert(
-                'Erro',
-                'Não foi possível excluir a tarefa.'
-              );
-            });
-          },
-        },
-      ]
-    );
+    Alert.alert('Excluir tarefa', `Deseja excluir "${task.title}"?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Excluir', style: 'destructive', onPress: () => void deleteTask(task) },
+    ]);
   }
 
   if (loading) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color="#2563EB" />
+      <View style={[styles.center, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Minhas tarefas</Text>
-
-        <TouchableOpacity onPress={() => void logout()}>
-          <Text style={styles.logout}>Sair</Text>
-        </TouchableOpacity>
-      </View>
-
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <Header title="Minhas tarefas" />
       <TouchableOpacity
-        style={styles.addButton}
+        style={[styles.addButton, { backgroundColor: colors.primary }]}
         onPress={() => navigation.navigate('TaskForm', {})}
+        accessibilityRole="button"
+        accessibilityLabel="Criar nova tarefa"
       >
         <Text style={styles.addText}>+ Nova tarefa</Text>
       </TouchableOpacity>
-
+      <FilterBar selected={selectedFilter} onSelect={setSelectedFilter} />
       <FlatList
-        data={tasks}
+        data={filteredTasks}
         keyExtractor={item => item.id}
-        contentContainerStyle={
-          tasks.length === 0 ? styles.emptyList : undefined
-        }
+        contentContainerStyle={filteredTasks.length === 0 ? styles.emptyList : undefined}
         ListEmptyComponent={
-          <Text style={styles.empty}>
-            Nenhuma tarefa cadastrada. Crie sua primeira tarefa!
-          </Text>
+          <EmptyState
+            title={tasks.length === 0 ? 'Nenhuma tarefa cadastrada' : 'Nenhuma tarefa neste status'}
+            description={tasks.length === 0 ? 'Crie sua primeira tarefa para começar.' : 'Escolha outro status para ver suas tarefas.'}
+          />
         }
         renderItem={({ item }) => (
-          <View style={styles.card}>
-            <TouchableOpacity
-              style={styles.taskInfo}
-              onPress={() =>
-                navigation.navigate('TaskDetail', {
-                  taskId: item.id,
-                })
-              }
-            >
-              <Text style={styles.taskTitle}>{item.title}</Text>
-
-              <Text style={styles.description} numberOfLines={2}>
-                {item.description || 'Sem descrição'}
-              </Text>
-
-              <Text style={styles.status}>
-                Status: {item.status}
-              </Text>
-
-              <Text style={styles.date}>
-                Prazo: {item.dueDate || 'Não definido'}
-              </Text>
-            </TouchableOpacity>
-
-            <View style={styles.actions}>
-              <TouchableOpacity
-                onPress={() =>
-                  navigation.navigate('TaskForm', {
-                    taskId: item.id,
-                  })
-                }
-              >
-                <Text style={styles.edit}>Editar</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => void confirmDelete(item)}
-              >
-                <Text style={styles.delete}>Excluir</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+          <TaskCard
+            task={item}
+            onPress={() => navigation.navigate('TaskDetail', { taskId: item.id })}
+            onEdit={() => navigation.navigate('TaskForm', { taskId: item.id })}
+            onDelete={() => confirmDelete(item)}
+          />
         )}
       />
     </View>
@@ -146,93 +86,9 @@ export default function TaskListScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F3F4F6',
-    padding: 20,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  logout: {
-    color: '#DC2626',
-    fontWeight: 'bold',
-  },
-  addButton: {
-    backgroundColor: '#2563EB',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginBottom: 18,
-  },
-  addText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  taskInfo: {
-    gap: 6,
-  },
-  taskTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111827',
-  },
-  description: {
-    fontSize: 14,
-    color: '#4B5563',
-  },
-  status: {
-    fontSize: 14,
-    color: '#2563EB',
-    fontWeight: '600',
-  },
-  date: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  actions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 20,
-    marginTop: 14,
-  },
-  edit: {
-    color: '#2563EB',
-    fontWeight: 'bold',
-  },
-  delete: {
-    color: '#DC2626',
-    fontWeight: 'bold',
-  },
-  empty: {
-    textAlign: 'center',
-    color: '#6B7280',
-    lineHeight: 22,
-  },
-  emptyList: {
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
+  container: { flex: 1, padding: 20 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  addButton: { padding: 15, borderRadius: 10, alignItems: 'center', marginBottom: 18 },
+  addText: { color: '#FFFFFF', fontWeight: '700', fontSize: 16 },
+  emptyList: { flexGrow: 1, justifyContent: 'center' },
 });
