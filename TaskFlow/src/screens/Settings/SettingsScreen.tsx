@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -11,31 +12,75 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import { Treatment } from '../../types/user';
 
-const TREATMENTS: Treatment[] = ['Sr.', 'Sra.', 'Srta.'];
+const TREATMENTS: Treatment[] = ['Sr.', 'Sra.'];
 
 export default function SettingsScreen() {
   const { user, logout, treatment, setTreatment } = useAuth();
   const [saving, setSaving] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   async function handleLogout() {
+    if (loggingOut) return;
+
     try {
+      setLoggingOut(true);
       await logout();
     } catch {
-      Alert.alert('Erro', 'Não foi possível sair da conta.');
+      const message = 'Não foi possível sair da conta.';
+
+      if (Platform.OS === 'web') {
+        globalThis.alert(message);
+      } else {
+        Alert.alert('Erro', message);
+      }
+    } finally {
+      setLoggingOut(false);
     }
   }
 
-  async function handleSelectTreatment(value: Treatment) {
-    if (value === treatment) {
+  function confirmLogout() {
+    const message = 'Deseja realmente sair da conta?';
+
+    if (Platform.OS === 'web') {
+      if (globalThis.confirm(message)) {
+        void handleLogout();
+      }
       return;
     }
+
+    Alert.alert('Sair da conta', message, [
+      {
+        text: 'Cancelar',
+        style: 'cancel',
+      },
+      {
+        text: 'Sair',
+        style: 'destructive',
+        onPress: () => void handleLogout(),
+      },
+    ]);
+  }
+
+  async function handleSelectTreatment(value: Treatment) {
+    if (value === treatment || saving) return;
 
     try {
       setSaving(true);
       await setTreatment(value);
-      Alert.alert('Sucesso', 'Tratamento atualizado.');
+
+      if (Platform.OS === 'web') {
+        globalThis.alert('Tratamento atualizado.');
+      } else {
+        Alert.alert('Sucesso', 'Tratamento atualizado.');
+      }
     } catch {
-      Alert.alert('Erro', 'Não foi possível salvar o tratamento.');
+      const message = 'Não foi possível salvar o tratamento.';
+
+      if (Platform.OS === 'web') {
+        globalThis.alert(message);
+      } else {
+        Alert.alert('Erro', message);
+      }
     } finally {
       setSaving(false);
     }
@@ -58,6 +103,7 @@ export default function SettingsScreen() {
       </View>
 
       <Text style={styles.sectionTitle}>Tratamento</Text>
+
       {TREATMENTS.map(option => (
         <TouchableOpacity
           key={option}
@@ -66,7 +112,7 @@ export default function SettingsScreen() {
             treatment === option && styles.selected,
           ]}
           onPress={() => void handleSelectTreatment(option)}
-          disabled={saving}
+          disabled={saving || loggingOut}
           accessibilityRole="button"
           accessibilityLabel={`Selecionar tratamento ${option}`}
           accessibilityHint="Salva o tratamento exibido no cabeçalho"
@@ -83,25 +129,25 @@ export default function SettingsScreen() {
           </Text>
         </TouchableOpacity>
       ))}
-      {saving ? <ActivityIndicator style={styles.loader} /> : null}
+
+      {saving && <ActivityIndicator style={styles.loader} />}
 
       <TouchableOpacity
-        style={styles.button}
-        onPress={() =>
-          Alert.alert('Sair da conta', 'Deseja realmente sair?', [
-            { text: 'Cancelar', style: 'cancel' },
-            {
-              text: 'Sair',
-              style: 'destructive',
-              onPress: () => void handleLogout(),
-            },
-          ])
-        }
+        style={[
+          styles.button,
+          loggingOut && styles.buttonDisabled,
+        ]}
+        onPress={confirmLogout}
+        disabled={loggingOut}
         accessibilityRole="button"
         accessibilityLabel="Sair da conta"
         accessibilityHint="Encerra a sessão atual"
       >
-        <Text style={styles.buttonText}>Sair da conta</Text>
+        {loggingOut ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Text style={styles.buttonText}>Sair da conta</Text>
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -169,6 +215,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     marginTop: 16,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   buttonText: {
     color: '#FFFFFF',
