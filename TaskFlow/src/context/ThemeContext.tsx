@@ -1,4 +1,11 @@
-import React, { createContext, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  createContext,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type ThemeMode = 'light' | 'dark';
@@ -53,13 +60,9 @@ const palettes: Record<ThemeMode, ThemeColors> = {
   },
 };
 
-export const ThemeContext = createContext<ThemeContextData>({
-  theme: 'light',
-  colors: palettes.light,
-  loading: true,
-  toggleTheme: async () => undefined,
-  setTheme: async () => undefined,
-});
+export const ThemeContext = createContext<ThemeContextData | undefined>(
+  undefined
+);
 
 interface ThemeProviderProps {
   children: ReactNode;
@@ -73,7 +76,10 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     async function loadTheme() {
       try {
         const savedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
-        if (savedTheme === 'light' || savedTheme === 'dark') setThemeState(savedTheme);
+
+        if (savedTheme === 'light' || savedTheme === 'dark') {
+          setThemeState(savedTheme);
+        }
       } catch (error) {
         console.error('Não foi possível carregar o tema salvo.', error);
       } finally {
@@ -94,9 +100,19 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   }, [setTheme, theme]);
 
   const value = useMemo(
-    () => ({ theme, colors: palettes[theme], loading, toggleTheme, setTheme }),
+    () => ({
+      theme,
+      colors: palettes[theme],
+      loading,
+      toggleTheme,
+      setTheme,
+    }),
     [theme, loading, toggleTheme, setTheme]
   );
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={value}>
+      {children}
+    </ThemeContext.Provider>
+  );
 }
