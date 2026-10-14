@@ -6,8 +6,9 @@ export type TaskStackParamList = {
 };
 
 export type TabParamList = {
-  Tarefas: undefined;
-  Configurações: undefined;
+  Home: undefined;
+  Tasks: undefined;
+  Settings: undefined;
 };
 
 export type AppStackParamList = {

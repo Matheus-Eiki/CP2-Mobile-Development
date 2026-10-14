@@ -22,7 +22,15 @@ export default function FilterBar({ selected, onSelect }: FilterBarProps) {
         return (
           <TouchableOpacity
             key={filter}
-            style={[styles.option, { borderColor: active ? colors.primary : colors.border, backgroundColor: active ? colors.primaryMuted : colors.surface }]}
+           style={[
+          styles.option,
+          {
+            borderColor: active ? colors.primary : colors.border,
+            backgroundColor: active
+              ? colors.primaryMuted
+              : colors.surface,
+  },
+]}
             onPress={() => onSelect(filter)}
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
