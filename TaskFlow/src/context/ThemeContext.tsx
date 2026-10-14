@@ -11,19 +11,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export type ThemeMode = 'light' | 'dark';
 
 export interface ThemeColors {
+  primary: string;
+  primaryMuted: string;
   background: string;
   surface: string;
   text: string;
   mutedText: string;
   border: string;
-  primary: string;
-  primaryMuted: string;
   danger: string;
   success: string;
   warning: string;
 }
 
-interface ThemeContextData {
+export interface ThemeContextData {
   theme: ThemeMode;
   colors: ThemeColors;
   loading: boolean;
@@ -33,31 +33,30 @@ interface ThemeContextData {
 
 const THEME_STORAGE_KEY = '@taskflow:theme';
 
-const palettes: Record<ThemeMode, ThemeColors> = {
-  light: {
-    background: '#F3F4F6',
-    surface: '#FFFFFF',
-    text: '#111827',
-    mutedText: '#6B7280',
-    border: '#E5E7EB',
-    primary: '#2563EB',
-    primaryMuted: '#EFF6FF',
-    danger: '#DC2626',
-    success: '#15803D',
-    warning: '#B45309',
-  },
-  dark: {
-    background: '#111827',
-    surface: '#1F2937',
-    text: '#F9FAFB',
-    mutedText: '#9CA3AF',
-    border: '#374151',
-    primary: '#60A5FA',
-    primaryMuted: '#1E3A5F',
-    danger: '#F87171',
-    success: '#4ADE80',
-    warning: '#FBBF24',
-  },
+const lightColors: ThemeColors = {
+  primary: '#2563EB',
+  primaryMuted: '#DBEAFE',
+  background: '#F3F4F6',
+  surface: '#FFFFFF',
+  text: '#111827',
+  mutedText: '#6B7280',
+  border: '#D1D5DB',
+  danger: '#DC2626',
+  success: '#16A34A',
+  warning: '#F59E0B',
+};
+
+const darkColors: ThemeColors = {
+  primary: '#60A5FA',
+  primaryMuted: '#1E3A5F',
+  background: '#111827',
+  surface: '#1F2937',
+  text: '#F9FAFB',
+  mutedText: '#9CA3AF',
+  border: '#374151',
+  danger: '#F87171',
+  success: '#4ADE80',
+  warning: '#FBBF24',
 };
 
 export const ThemeContext = createContext<ThemeContextData | undefined>(
@@ -81,7 +80,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
           setThemeState(savedTheme);
         }
       } catch (error) {
-        console.error('Não foi possível carregar o tema salvo.', error);
+        console.error('Erro ao carregar o tema:', error);
       } finally {
         setLoading(false);
       }
@@ -90,29 +89,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     void loadTheme();
   }, []);
 
-  const setTheme = useCallback(async (nextTheme: ThemeMode) => {
-    await AsyncStorage.setItem(THEME_STORAGE_KEY, nextTheme);
-    setThemeState(nextTheme);
+  const setTheme = useCallback(async (newTheme: ThemeMode) => {
+    await AsyncStorage.setItem(THEME_STORAGE_KEY, newTheme);
+    setThemeState(newTheme);
   }, []);
-
-  const toggleTheme = useCallback(async () => {
-    await setTheme(theme === 'light' ? 'dark' : 'light');
-  }, [setTheme, theme]);
-
-  const value = useMemo(
-    () => ({
-      theme,
-      colors: palettes[theme],
-      loading,
-      toggleTheme,
-      setTheme,
-    }),
-    [theme, loading, toggleTheme, setTheme]
-  );
-
-  return (
-    <ThemeContext.Provider value={value}>
-      {children}
-    </ThemeContext.Provider>
-  );
-}
