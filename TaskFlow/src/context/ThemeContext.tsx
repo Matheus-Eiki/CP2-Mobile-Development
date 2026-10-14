@@ -1,10 +1,11 @@
 import React, {
   createContext,
   ReactNode,
+  useCallback,
   useEffect,
+  useMemo,
   useState,
 } from 'react';
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export type ThemeMode = 'light' | 'dark';
@@ -43,6 +44,19 @@ const lightColors: ThemeColors = {
   warning: '#F59E0B',
 };
 
+const lightColors: ThemeColors = {
+  primary: '#2563EB',
+  primaryMuted: '#DBEAFE',
+  background: '#F3F4F6',
+  surface: '#FFFFFF',
+  text: '#111827',
+  mutedText: '#6B7280',
+  border: '#D1D5DB',
+  danger: '#DC2626',
+  success: '#16A34A',
+  warning: '#F59E0B',
+};
+
 const darkColors: ThemeColors = {
   primary: '#60A5FA',
   primaryMuted: '#1E3A5F',
@@ -56,11 +70,9 @@ const darkColors: ThemeColors = {
   warning: '#FBBF24',
 };
 
-const THEME_STORAGE_KEY = '@taskflow:theme';
-
-export const ThemeContext = createContext<
-  ThemeContextData | undefined
->(undefined);
+export const ThemeContext = createContext<ThemeContextData | undefined>(
+  undefined
+);
 
 interface ThemeProviderProps {
   children: ReactNode;
@@ -73,9 +85,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   useEffect(() => {
     async function loadTheme() {
       try {
-        const savedTheme = await AsyncStorage.getItem(
-          THEME_STORAGE_KEY
-        );
+        const savedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
 
         if (savedTheme === 'light' || savedTheme === 'dark') {
           setThemeState(savedTheme);
