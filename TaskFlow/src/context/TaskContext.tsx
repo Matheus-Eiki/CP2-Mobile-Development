@@ -2,11 +2,15 @@ import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useState,
   ReactNode,
 } from 'react';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Task } from '../types/task';
+
+const TASKS_STORAGE_KEY = '@taskflow:tasks';
 
 interface TaskContextData {
   tasks: Task[];
@@ -27,28 +31,69 @@ interface TaskProviderProps {
 
 export function TaskProvider({ children }: TaskProviderProps) {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const addTask = useCallback(async (task: Task) => {
-    setTasks(currentTasks => [...currentTasks, task]);
+  // Carrega as tarefas salvas ao abrir o aplicativo.
+  useEffect(() => {
+    async function loadTasks() {
+      try {
+        const savedTasks = await AsyncStorage.getItem(TASKS_STORAGE_KEY);
+
+        if (savedTasks) {
+          setTasks(JSON.parse(savedTasks) as Task[]);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar tarefas:', error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadTasks();
   }, []);
 
-  const editTask = useCallback(async (updatedTask: Task) => {
-    setTasks(currentTasks =>
-      currentTasks.map(task =>
+  // Salva a lista atual no armazenamento do dispositivo.
+  const saveTasks = useCallback(async (updatedTasks: Task[]) => {
+    await AsyncStorage.setItem(
+      TASKS_STORAGE_KEY,
+      JSON.stringify(updatedTasks)
+    );
+  }, []);
+
+  const addTask = useCallback(
+    async (task: Task) => {
+      const updatedTasks = [...tasks, task];
+
+      await saveTasks(updatedTasks);
+      setTasks(updatedTasks);
+    },
+    [tasks, saveTasks]
+  );
+
+  const editTask = useCallback(
+    async (updatedTask: Task) => {
+      const updatedTasks = tasks.map((task) =>
         task.id === updatedTask.id ? updatedTask : task
-      )
-    );
-  }, []);
+      );
 
-  const removeTask = useCallback(async (id: string) => {
-    setTasks(currentTasks =>
-      currentTasks.filter(task => task.id !== id)
-    );
-  }, []);
+      await saveTasks(updatedTasks);
+      setTasks(updatedTasks);
+    },
+    [tasks, saveTasks]
+  );
+
+  const removeTask = useCallback(
+    async (id: string) => {
+      const updatedTasks = tasks.filter((task) => task.id !== id);
+
+      await saveTasks(updatedTasks);
+      setTasks(updatedTasks);
+    },
+    [tasks, saveTasks]
+  );
 
   const findTask = useCallback(
-    (id: string) => tasks.find(task => task.id === id),
+    (id: string) => tasks.find((task) => task.id === id),
     [tasks]
   );
 
