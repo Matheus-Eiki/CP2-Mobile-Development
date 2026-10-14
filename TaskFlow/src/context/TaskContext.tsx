@@ -3,22 +3,25 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
   ReactNode,
 } from 'react';
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Task } from '../types/task';
-
-const TASKS_STORAGE_KEY = '@taskflow:tasks';
+import { useAuth } from '../hooks/useAuth';
+import {
+  getStoredTasks,
+  saveStoredTasks,
+} from '../services/taskStorage';
 
 interface TaskContextData {
   tasks: Task[];
   loading: boolean;
   addTask: (task: Task) => Promise<void>;
-  editTask: (task: Task) => Promise<void>;
-  removeTask: (id: string) => Promise<void>;
-  findTask: (id: string) => Task | undefined;
+  updateTask: (task: Task) => Promise<void>;
+  deleteTask: (id: string) => Promise<void>;
+  getTaskById: (id: string) => Task | undefined;
 }
 
 export const TaskContext = createContext<TaskContextData>(
@@ -29,19 +32,28 @@ interface TaskProviderProps {
   children: ReactNode;
 }
 
+function normalizeTask(task: Task, fallbackUserId: string): Task {
+  return {
+    ...task,
+    userId: task.userId || fallbackUserId,
+    priority: task.priority ?? 'Média',
+    category: task.category ?? 'Outros',
+    updatedAt: task.updatedAt ?? task.createdAt,
+  };
+}
+
 export function TaskProvider({ children }: TaskProviderProps) {
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const { user } = useAuth();
+  const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Carrega as tarefas salvas ao abrir o aplicativo.
   useEffect(() => {
     async function loadTasks() {
       try {
-        const savedTasks = await AsyncStorage.getItem(TASKS_STORAGE_KEY);
-
-        if (savedTasks) {
-          setTasks(JSON.parse(savedTasks) as Task[]);
-        }
+        const savedTasks = await getStoredTasks();
+        setAllTasks(
+          savedTasks.map(task => normalizeTask(task, 'user-1'))
+        );
       } catch (error) {
         console.error('Erro ao carregar tarefas:', error);
       } finally {
@@ -49,51 +61,86 @@ export function TaskProvider({ children }: TaskProviderProps) {
       }
     }
 
-    loadTasks();
+    void loadTasks();
   }, []);
 
-  // Salva a lista atual no armazenamento do dispositivo.
-  const saveTasks = useCallback(async (updatedTasks: Task[]) => {
-    await AsyncStorage.setItem(
-      TASKS_STORAGE_KEY,
-      JSON.stringify(updatedTasks)
-    );
+  const tasks = useMemo(
+    () => (user ? allTasks.filter(task => task.userId === user.id) : []),
+    [allTasks, user]
+  );
+
+  const persistTasks = useCallback(async (updatedTasks: Task[]) => {
+    await saveStoredTasks(updatedTasks);
+    setAllTasks(updatedTasks);
   }, []);
 
   const addTask = useCallback(
     async (task: Task) => {
-      const updatedTasks = [...tasks, task];
+      if (!user) {
+        throw new Error('Usuário não autenticado.');
+      }
 
-      await saveTasks(updatedTasks);
-      setTasks(updatedTasks);
+      const now = new Date().toISOString();
+      const taskToSave: Task = {
+        ...task,
+        userId: user.id,
+        createdAt: task.createdAt || now,
+        updatedAt: now,
+      };
+
+      await persistTasks([...allTasks, taskToSave]);
     },
-    [tasks, saveTasks]
+    [allTasks, persistTasks, user]
   );
 
-  const editTask = useCallback(
+  const updateTask = useCallback(
     async (updatedTask: Task) => {
-      const updatedTasks = tasks.map((task) =>
-        task.id === updatedTask.id ? updatedTask : task
+      if (!user) {
+        throw new Error('Usuário não autenticado.');
+      }
+
+      const exists = allTasks.some(
+        task => task.id === updatedTask.id && task.userId === user.id
       );
 
-      await saveTasks(updatedTasks);
-      setTasks(updatedTasks);
+      if (!exists) {
+        throw new Error('Tarefa não encontrada.');
+      }
+
+      const now = new Date().toISOString();
+      const updatedTasks = allTasks.map(task =>
+        task.id === updatedTask.id && task.userId === user.id
+          ? {
+              ...updatedTask,
+              userId: user.id,
+              createdAt: task.createdAt,
+              updatedAt: now,
+            }
+          : task
+      );
+
+      await persistTasks(updatedTasks);
     },
-    [tasks, saveTasks]
+    [allTasks, persistTasks, user]
   );
 
-  const removeTask = useCallback(
+  const deleteTask = useCallback(
     async (id: string) => {
-      const updatedTasks = tasks.filter((task) => task.id !== id);
+      if (!user) {
+        throw new Error('Usuário não autenticado.');
+      }
 
-      await saveTasks(updatedTasks);
-      setTasks(updatedTasks);
+      const updatedTasks = allTasks.filter(
+        task => !(task.id === id && task.userId === user.id)
+      );
+
+      await persistTasks(updatedTasks);
     },
-    [tasks, saveTasks]
+    [allTasks, persistTasks, user]
   );
 
-  const findTask = useCallback(
-    (id: string) => tasks.find((task) => task.id === id),
+  const getTaskById = useCallback(
+    (id: string) => tasks.find(task => task.id === id),
     [tasks]
   );
 
@@ -103,9 +150,9 @@ export function TaskProvider({ children }: TaskProviderProps) {
         tasks,
         loading,
         addTask,
-        editTask,
-        removeTask,
-        findTask,
+        updateTask,
+        deleteTask,
+        getTaskById,
       }}
     >
       {children}

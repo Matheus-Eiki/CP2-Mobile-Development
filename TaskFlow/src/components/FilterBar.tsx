@@ -35,6 +35,7 @@ export default function FilterBar({ selected, onSelect }: FilterBarProps) {
             accessibilityRole="button"
             accessibilityState={{ selected: active }}
             accessibilityLabel={`Filtrar por ${filter.toLowerCase()}`}
+            accessibilityHint="Mostra apenas as tarefas com este status"
           >
             <Text style={[styles.label, { color: active ? colors.primary : colors.mutedText }]}>{filter}</Text>
           </TouchableOpacity>

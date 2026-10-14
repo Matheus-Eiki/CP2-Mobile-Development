@@ -54,6 +54,9 @@ export default function LoginScreen() {
         keyboardType="email-address"
         autoCapitalize="none"
         autoCorrect={false}
+        accessibilityLabel="E-mail"
+        accessibilityHint="Informe o e-mail da conta"
+        accessibilityRole="text"
       />
 
       <TextInput
@@ -62,12 +65,18 @@ export default function LoginScreen() {
         value={password}
         onChangeText={setPassword}
         secureTextEntry
+        accessibilityLabel="Senha"
+        accessibilityHint="Informe a senha da conta"
+        accessibilityRole="text"
       />
 
       <TouchableOpacity
         style={styles.button}
         onPress={handleLogin}
         disabled={loading}
+        accessibilityRole="button"
+        accessibilityLabel="Entrar"
+        accessibilityHint="Entra na conta com o e-mail e a senha informados"
       >
         {loading ? (
           <ActivityIndicator color="#FFFFFF" />

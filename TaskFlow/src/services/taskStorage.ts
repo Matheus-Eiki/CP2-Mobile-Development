@@ -1,48 +1,28 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { User } from '../types/user';
+import { Task } from '../types/task';
 
-const SESSION_KEY = '@TaskApp:session';
-const USERS_KEY = '@TaskApp:users';
+const TASKS_STORAGE_KEY = '@taskflow:tasks';
 
-export interface RegisteredUser extends User {
-  password: string;
-}
-
-export async function saveSession(user: User): Promise<void> {
-  await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(user));
-}
-
-export async function getSession(): Promise<User | null> {
-  const data = await AsyncStorage.getItem(SESSION_KEY);
-
-  if (!data) return null;
-
+export async function getStoredTasks(): Promise<Task[]> {
   try {
-    return JSON.parse(data) as User;
-  } catch {
-    await AsyncStorage.removeItem(SESSION_KEY);
-    return null;
+    const savedTasks = await AsyncStorage.getItem(TASKS_STORAGE_KEY);
+
+    if (!savedTasks) {
+      return [];
+    }
+
+    return JSON.parse(savedTasks) as Task[];
+  } catch (error) {
+    console.error('Erro ao carregar tarefas:', error);
+    throw error;
   }
 }
 
-export async function clearSession(): Promise<void> {
-  await AsyncStorage.removeItem(SESSION_KEY);
-}
-
-export async function getRegisteredUsers(): Promise<RegisteredUser[]> {
-  const data = await AsyncStorage.getItem(USERS_KEY);
-
-  if (!data) return [];
-
+export async function saveStoredTasks(tasks: Task[]): Promise<void> {
   try {
-    return JSON.parse(data) as RegisteredUser[];
-  } catch {
-    return [];
+    await AsyncStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks));
+  } catch (error) {
+    console.error('Erro ao salvar tarefas:', error);
+    throw error;
   }
-}
-
-export async function saveRegisteredUsers(
-  users: RegisteredUser[]
-): Promise<void> {
-  await AsyncStorage.setItem(USERS_KEY, JSON.stringify(users));
 }

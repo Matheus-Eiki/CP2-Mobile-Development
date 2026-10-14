@@ -25,7 +25,7 @@ import { TaskStackParamList } from '../../types/navigation';
 type Props = NativeStackScreenProps<TaskStackParamList, 'TaskList'>;
 
 export default function TaskListScreen({ navigation }: Props) {
-  const { tasks, loading, removeTask } = useTasks();
+  const { tasks, loading, deleteTask } = useTasks();
   const { colors } = useTheme();
   const { logout } = useAuth();
 
@@ -40,9 +40,9 @@ export default function TaskListScreen({ navigation }: Props) {
     [tasks, selectedFilter]
   );
 
-  async function deleteTask(task: Task) {
+  async function handleDeleteTask(task: Task) {
     try {
-      await removeTask(task.id);
+      await deleteTask(task.id);
     } catch {
       if (Platform.OS === 'web') {
         globalThis.alert('Não foi possível excluir a tarefa.');
@@ -59,7 +59,7 @@ export default function TaskListScreen({ navigation }: Props) {
       );
 
       if (confirmed) {
-        void deleteTask(task);
+        void handleDeleteTask(task);
       }
 
       return;
@@ -76,7 +76,7 @@ export default function TaskListScreen({ navigation }: Props) {
         {
           text: 'Excluir',
           style: 'destructive',
-          onPress: () => void deleteTask(task),
+          onPress: () => void handleDeleteTask(task),
         },
       ]
     );
@@ -111,6 +111,7 @@ export default function TaskListScreen({ navigation }: Props) {
           onPress={() => void logout()}
           accessibilityRole="button"
           accessibilityLabel="Sair da conta"
+          accessibilityHint="Encerra a sessão e volta para a tela de login"
         >
           <Text style={[styles.logout, { color: colors.danger }]}>
             Sair
@@ -126,6 +127,7 @@ export default function TaskListScreen({ navigation }: Props) {
         onPress={() => navigation.navigate('TaskForm', {})}
         accessibilityRole="button"
         accessibilityLabel="Criar nova tarefa"
+        accessibilityHint="Abre o formulário para cadastrar uma nova tarefa"
       >
         <Text style={styles.addText}>+ Nova tarefa</Text>
       </TouchableOpacity>
@@ -174,6 +176,7 @@ export default function TaskListScreen({ navigation }: Props) {
               }
               accessibilityRole="button"
               accessibilityLabel={`Ver tarefa ${item.title}`}
+              accessibilityHint="Abre os detalhes da tarefa"
             >
               <Text
                 style={[styles.taskTitle, { color: colors.text }]}
@@ -195,6 +198,7 @@ export default function TaskListScreen({ navigation }: Props) {
                 }
                 accessibilityRole="button"
                 accessibilityLabel={`Editar tarefa ${item.title}`}
+                accessibilityHint="Abre o formulário para editar esta tarefa"
               >
                 <Text style={{ color: colors.primary }}>
                   Editar
@@ -205,6 +209,7 @@ export default function TaskListScreen({ navigation }: Props) {
                 onPress={() => confirmDelete(item)}
                 accessibilityRole="button"
                 accessibilityLabel={`Excluir tarefa ${item.title}`}
+                accessibilityHint="Remove esta tarefa após confirmação"
               >
                 <Text style={{ color: colors.danger }}>
                   Excluir

@@ -8,6 +8,8 @@ import React, {
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+const THEME_STORAGE_KEY = '@taskflow:theme';
+
 export type ThemeMode = 'light' | 'dark';
 
 export interface ThemeColors {
@@ -30,19 +32,6 @@ export interface ThemeContextData {
   toggleTheme: () => void;
   setTheme: (theme: ThemeMode) => void;
 }
-
-const lightColors: ThemeColors = {
-  primary: '#2563EB',
-  primaryMuted: '#DBEAFE',
-  background: '#F3F4F6',
-  surface: '#FFFFFF',
-  text: '#111827',
-  mutedText: '#6B7280',
-  border: '#D1D5DB',
-  danger: '#DC2626',
-  success: '#16A34A',
-  warning: '#F59E0B',
-};
 
 const lightColors: ThemeColors = {
   primary: '#2563EB',

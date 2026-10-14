@@ -7,18 +7,22 @@ import React, {
   ReactNode,
 } from 'react';
 
-import { User } from '../types/user';
+import { Treatment, User } from '../types/user';
 import {
   clearSession,
   getSession,
+  getTreatment,
   saveSession,
+  saveTreatment,
 } from '../services/authStorage';
 
 interface AuthContextData {
   user: User | null;
   loading: boolean;
+  treatment: Treatment;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  setTreatment: (treatment: Treatment) => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextData>(
@@ -31,13 +35,19 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
+  const [treatment, setTreatmentState] = useState<Treatment>('Sr.');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadSession() {
       try {
         const savedUser = await getSession();
+        const savedTreatment = await getTreatment();
         setUser(savedUser);
+
+        if (savedTreatment) {
+          setTreatmentState(savedTreatment);
+        }
       } finally {
         setLoading(false);
       }
@@ -74,8 +84,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setUser(null);
   }, []);
 
+  const setTreatment = useCallback(async (value: Treatment) => {
+    await saveTreatment(value);
+    setTreatmentState(value);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        treatment,
+        login,
+        logout,
+        setTreatment,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

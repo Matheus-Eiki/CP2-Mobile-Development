@@ -1,6 +1,6 @@
-
 import React, { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   ScrollView,
   StyleSheet,
@@ -10,23 +10,32 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 
+import { useAuth } from '../../hooks/useAuth';
 import { useTasks } from '../../context/TaskContext';
-import { Task, TaskStatus } from '../../types/task';
+import {
+  Task,
+  TaskCategory,
+  TaskPriority,
+  TaskStatus,
+} from '../../types/task';
 import { TaskStackParamList } from '../../types/navigation';
+import {
+  TASK_CATEGORIES,
+  TASK_PRIORITIES,
+  TASK_STATUSES,
+  TaskFormErrors,
+  hasTaskFormErrors,
+  validateTaskForm,
+} from '../../utils/validation';
 
 type Props = NativeStackScreenProps<TaskStackParamList, 'TaskForm'>;
 
-const statuses: TaskStatus[] = [
-  'Pendente',
-  'Em andamento',
-  'Concluída',
-];
-
 export default function TaskFormScreen({ route, navigation }: Props) {
-  const taskId = route.params.taskId;
-  const { tasks, addTask, editTask } = useTasks();
+  const taskId = route.params?.taskId;
+  const { user } = useAuth();
+  const { addTask, updateTask, getTaskById, loading } = useTasks();
 
-  const existingTask = tasks.find(task => task.id === taskId);
+  const existingTask = taskId ? getTaskById(taskId) : undefined;
 
   const [title, setTitle] = useState(existingTask?.title ?? '');
   const [description, setDescription] = useState(
@@ -36,45 +45,89 @@ export default function TaskFormScreen({ route, navigation }: Props) {
   const [status, setStatus] = useState<TaskStatus>(
     existingTask?.status ?? 'Pendente'
   );
+  const [priority, setPriority] = useState<TaskPriority>(
+    existingTask?.priority ?? 'Média'
+  );
+  const [category, setCategory] = useState<TaskCategory>(
+    existingTask?.category ?? 'Pessoal'
+  );
+  const [errors, setErrors] = useState<TaskFormErrors>({});
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (taskId && !existingTask) {
+    if (!existingTask) {
+      return;
+    }
+
+    setTitle(existingTask.title);
+    setDescription(existingTask.description);
+    setDueDate(existingTask.dueDate);
+    setStatus(existingTask.status);
+    setPriority(existingTask.priority);
+    setCategory(existingTask.category);
+  }, [existingTask?.id]);
+
+  useEffect(() => {
+    if (taskId && !loading && !existingTask) {
       Alert.alert('Aviso', 'Esta tarefa não foi encontrada.', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     }
-  }, [taskId, existingTask, navigation]);
+  }, [taskId, existingTask, loading, navigation]);
 
   async function handleSave() {
-    if (!title.trim()) {
-      Alert.alert('Atenção', 'O título é obrigatório.');
+    const validationErrors = validateTaskForm({
+      title,
+      description,
+      status,
+      priority,
+      category,
+    });
+
+    setErrors(validationErrors);
+
+    if (hasTaskFormErrors(validationErrors)) {
       return;
     }
 
     if (taskId && !existingTask) return;
 
+    if (!user) {
+      Alert.alert('Erro', 'Usuário não autenticado.');
+      return;
+    }
+
     const now = new Date().toISOString();
 
     const task: Task = {
       id: existingTask?.id ?? `${Date.now()}`,
+      userId: user.id,
       title: title.trim(),
       description: description.trim(),
       dueDate: dueDate.trim(),
       status,
+      priority,
+      category,
       createdAt: existingTask?.createdAt ?? now,
+      updatedAt: now,
     };
 
     try {
       setSaving(true);
 
       if (existingTask) {
-        await editTask(task);
+        await updateTask(task);
       } else {
         await addTask(task);
       }
 
-      navigation.goBack();
+      Alert.alert(
+        'Sucesso',
+        existingTask
+          ? 'Tarefa atualizada com sucesso.'
+          : 'Tarefa cadastrada com sucesso.',
+        [{ text: 'OK', onPress: () => navigation.goBack() }]
+      );
     } catch {
       Alert.alert('Erro', 'Não foi possível salvar a tarefa.');
     } finally {
@@ -91,9 +144,15 @@ export default function TaskFormScreen({ route, navigation }: Props) {
         value={title}
         onChangeText={setTitle}
         maxLength={100}
+        accessibilityLabel="Título da tarefa"
+        accessibilityHint="Informe o título da tarefa, com no mínimo 3 caracteres"
+        accessibilityRole="text"
       />
+      {errors.title ? (
+        <Text style={styles.error}>{errors.title}</Text>
+      ) : null}
 
-      <Text style={styles.label}>Descrição</Text>
+      <Text style={styles.label}>Descrição *</Text>
       <TextInput
         style={[styles.input, styles.multiline]}
         placeholder="Descreva a tarefa..."
@@ -101,7 +160,13 @@ export default function TaskFormScreen({ route, navigation }: Props) {
         onChangeText={setDescription}
         multiline
         textAlignVertical="top"
+        accessibilityLabel="Descrição da tarefa"
+        accessibilityHint="Informe a descrição da tarefa, com no mínimo 5 caracteres"
+        accessibilityRole="text"
       />
+      {errors.description ? (
+        <Text style={styles.error}>{errors.description}</Text>
+      ) : null}
 
       <Text style={styles.label}>Prazo</Text>
       <TextInput
@@ -110,10 +175,13 @@ export default function TaskFormScreen({ route, navigation }: Props) {
         value={dueDate}
         onChangeText={setDueDate}
         keyboardType="numbers-and-punctuation"
+        accessibilityLabel="Prazo da tarefa"
+        accessibilityHint="Informe a data de prazo no formato ano, mês e dia"
+        accessibilityRole="text"
       />
 
-      <Text style={styles.label}>Status</Text>
-      {statuses.map(option => (
+      <Text style={styles.label}>Status *</Text>
+      {TASK_STATUSES.map(option => (
         <TouchableOpacity
           key={option}
           style={[
@@ -121,6 +189,10 @@ export default function TaskFormScreen({ route, navigation }: Props) {
             status === option && styles.selected,
           ]}
           onPress={() => setStatus(option)}
+          accessibilityRole="button"
+          accessibilityLabel={`Status ${option}`}
+          accessibilityHint="Toque para selecionar este status"
+          accessibilityState={{ selected: status === option }}
         >
           <Text
             style={[
@@ -133,15 +205,85 @@ export default function TaskFormScreen({ route, navigation }: Props) {
           </Text>
         </TouchableOpacity>
       ))}
+      {errors.status ? (
+        <Text style={styles.error}>{errors.status}</Text>
+      ) : null}
+
+      <Text style={styles.label}>Prioridade *</Text>
+      {TASK_PRIORITIES.map(option => (
+        <TouchableOpacity
+          key={option}
+          style={[
+            styles.statusOption,
+            priority === option && styles.selected,
+          ]}
+          onPress={() => setPriority(option)}
+          accessibilityRole="button"
+          accessibilityLabel={`Prioridade ${option}`}
+          accessibilityHint="Toque para selecionar esta prioridade"
+          accessibilityState={{ selected: priority === option }}
+        >
+          <Text
+            style={[
+              styles.statusText,
+              priority === option && styles.selectedText,
+            ]}
+          >
+            {priority === option ? '● ' : '○ '}
+            {option}
+          </Text>
+        </TouchableOpacity>
+      ))}
+      {errors.priority ? (
+        <Text style={styles.error}>{errors.priority}</Text>
+      ) : null}
+
+      <Text style={styles.label}>Categoria *</Text>
+      {TASK_CATEGORIES.map(option => (
+        <TouchableOpacity
+          key={option}
+          style={[
+            styles.statusOption,
+            category === option && styles.selected,
+          ]}
+          onPress={() => setCategory(option)}
+          accessibilityRole="button"
+          accessibilityLabel={`Categoria ${option}`}
+          accessibilityHint="Toque para selecionar esta categoria"
+          accessibilityState={{ selected: category === option }}
+        >
+          <Text
+            style={[
+              styles.statusText,
+              category === option && styles.selectedText,
+            ]}
+          >
+            {category === option ? '● ' : '○ '}
+            {option}
+          </Text>
+        </TouchableOpacity>
+      ))}
+      {errors.category ? (
+        <Text style={styles.error}>{errors.category}</Text>
+      ) : null}
 
       <TouchableOpacity
         style={[styles.button, saving && styles.disabled]}
         onPress={() => void handleSave()}
         disabled={saving}
+        accessibilityRole="button"
+        accessibilityLabel={
+          existingTask ? 'Salvar alterações' : 'Cadastrar tarefa'
+        }
+        accessibilityHint="Salva a tarefa após validar os campos"
       >
-        <Text style={styles.buttonText}>
-          {saving ? 'Salvando...' : existingTask ? 'Salvar alterações' : 'Cadastrar tarefa'}
-        </Text>
+        {saving ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Text style={styles.buttonText}>
+            {existingTask ? 'Salvar alterações' : 'Cadastrar tarefa'}
+          </Text>
+        )}
       </TouchableOpacity>
     </ScrollView>
   );
@@ -156,10 +298,15 @@ const styles = StyleSheet.create({
     borderColor: '#D1D5DB',
     borderRadius: 10,
     padding: 13,
-    marginBottom: 18,
+    marginBottom: 8,
     fontSize: 15,
   },
   multiline: { minHeight: 100 },
+  error: {
+    color: '#DC2626',
+    fontSize: 13,
+    marginBottom: 14,
+  },
   statusOption: {
     backgroundColor: '#FFFFFF',
     padding: 13,

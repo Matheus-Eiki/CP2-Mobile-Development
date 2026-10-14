@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -13,6 +13,7 @@ import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import Header from '../../components/Header';
 import { useTasks } from '../../hooks/useTasks';
 import { useTheme } from '../../hooks/useTheme';
+import { fetchRandomQuote, RandomQuote } from '../../services/api';
 import { TabParamList } from '../../types/navigation';
 
 type NavigationProps = BottomTabNavigationProp<TabParamList>;
@@ -21,6 +22,28 @@ export default function HomeScreen() {
   const navigation = useNavigation<NavigationProps>();
   const { tasks, loading } = useTasks();
   const { colors } = useTheme();
+
+  const [quote, setQuote] = useState<RandomQuote | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(true);
+  const [quoteError, setQuoteError] = useState<string | null>(null);
+
+  async function loadQuote() {
+    try {
+      setQuoteLoading(true);
+      setQuoteError(null);
+      const data = await fetchRandomQuote();
+      setQuote(data);
+    } catch {
+      setQuote(null);
+      setQuoteError('Não foi possível carregar a citação.');
+    } finally {
+      setQuoteLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadQuote();
+  }, []);
 
   const counts = useMemo(() => {
     const completed = tasks.filter(
@@ -89,6 +112,8 @@ export default function HomeScreen() {
           style={styles.primaryButton}
           onPress={() => navigation.navigate('Tasks')}
           accessibilityRole="button"
+          accessibilityLabel="Ver minhas tarefas"
+          accessibilityHint="Abre a lista de tarefas"
         >
           <Text style={styles.primaryButtonText}>
             Ver minhas tarefas
@@ -165,13 +190,38 @@ export default function HomeScreen() {
         ]}
       >
         <Text style={[styles.tipTitle, { color: colors.text }]}>
-          💡 Dica do dia
+          Citação do dia
         </Text>
 
-        <Text style={[styles.tipText, { color: colors.mutedText }]}>
-          Divida tarefas grandes em etapas menores e priorize o que é mais
-          importante para manter sua rotina organizada.
-        </Text>
+        {quoteLoading ? (
+          <ActivityIndicator color={colors.primary} />
+        ) : quoteError ? (
+          <>
+            <Text style={[styles.tipText, { color: colors.danger }]}>
+              {quoteError}
+            </Text>
+            <TouchableOpacity
+              style={[styles.retryButton, { borderColor: colors.primary }]}
+              onPress={() => void loadQuote()}
+              accessibilityRole="button"
+              accessibilityLabel="Tentar novamente"
+              accessibilityHint="Carrega outra citação da internet"
+            >
+              <Text style={[styles.retryText, { color: colors.primary }]}>
+                Tentar novamente
+              </Text>
+            </TouchableOpacity>
+          </>
+        ) : quote ? (
+          <>
+            <Text style={[styles.tipText, { color: colors.mutedText }]}>
+              "{quote.quote}"
+            </Text>
+            <Text style={[styles.author, { color: colors.text }]}>
+              — {quote.author}
+            </Text>
+          </>
+        ) : null}
       </View>
     </ScrollView>
   );
@@ -261,5 +311,21 @@ const styles = StyleSheet.create({
   tipText: {
     fontSize: 14,
     lineHeight: 21,
+  },
+  author: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    marginTop: 10,
+  },
+  retryButton: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  retryText: {
+    fontWeight: 'bold',
   },
 });
