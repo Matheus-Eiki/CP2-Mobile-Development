@@ -27,11 +27,22 @@ export interface ThemeContextData {
   theme: ThemeMode;
   colors: ThemeColors;
   loading: boolean;
-  toggleTheme: () => Promise<void>;
-  setTheme: (theme: ThemeMode) => Promise<void>;
+  toggleTheme: () => void;
+  setTheme: (theme: ThemeMode) => void;
 }
 
-const THEME_STORAGE_KEY = '@taskflow:theme';
+const lightColors: ThemeColors = {
+  primary: '#2563EB',
+  primaryMuted: '#DBEAFE',
+  background: '#F3F4F6',
+  surface: '#FFFFFF',
+  text: '#111827',
+  mutedText: '#6B7280',
+  border: '#D1D5DB',
+  danger: '#DC2626',
+  success: '#16A34A',
+  warning: '#F59E0B',
+};
 
 const lightColors: ThemeColors = {
   primary: '#2563EB',
@@ -89,7 +100,34 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     void loadTheme();
   }, []);
 
-  const setTheme = useCallback(async (newTheme: ThemeMode) => {
-    await AsyncStorage.setItem(THEME_STORAGE_KEY, newTheme);
+  function setTheme(newTheme: ThemeMode) {
     setThemeState(newTheme);
-  }, []);
+
+    void AsyncStorage.setItem(
+      THEME_STORAGE_KEY,
+      newTheme
+    ).catch(error => {
+      console.error('Erro ao salvar o tema:', error);
+    });
+  }
+
+  function toggleTheme() {
+    setTheme(theme === 'light' ? 'dark' : 'light');
+  }
+
+  const colors = theme === 'light' ? lightColors : darkColors;
+
+  return (
+    <ThemeContext.Provider
+      value={{
+        theme,
+        colors,
+        loading,
+        toggleTheme,
+        setTheme,
+      }}
+    >
+      {children}
+    </ThemeContext.Provider>
+  );
+}
