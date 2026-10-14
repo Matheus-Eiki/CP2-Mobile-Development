@@ -376,3 +376,7 @@ Ao alterar os arquivos, o Expo poderá atualizar o aplicativo automaticamente. S
 
 Projeto desenvolvido para fins acadêmicos. Uma licença específica deverá ser definida caso o projeto seja distribuído ou utilizado comercialmente.
 ```
+
+RM559483 - Matheus Ikeda
+RM560723 - Davis Junior
+RM560340 - Matheus Machado
